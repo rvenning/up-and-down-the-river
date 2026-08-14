@@ -1,0 +1,9 @@
+{
+  "name": "up-and-down-the-river",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A table-side scorer for the card game Up & Down the River. Bids, tricks, running totals and a long memory.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Up &amp; Down the River — scorer</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12332a">
+<meta name="description" content="A table-side scorer for the card game Up & Down the River. Bids, tricks, running totals and a long memory.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Up &amp; Down">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="lib/gk-base.css">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎴</text></svg>">
+</head>
+<body>
+
+<!-- ===== Home ========================================================== -->
+<div class="screen active" id="screen-home">
+  <div class="body">
+    <div class="wrap splash">
+      <h1>Up <span class="amp">&amp;</span> Down<br>the River</h1>
+      <p class="tag">Somebody has to keep score. It may as well be a phone.</p>
+      <div class="ladder" id="home-ladder" aria-hidden="true"></div>
+    </div>
+
+    <div class="wrap">
+      <div id="resume-slot"></div>
+      <div class="stack">
+        <button class="btn wide" onclick="App.newGame()">New game</button>
+        <button class="btn cream wide" onclick="App.showPlayers()">Players</button>
+        <button class="btn ghost wide" onclick="App.showHistory()">Game history</button>
+        <button class="btn ghost wide" onclick="App.showSettings()">Settings</button>
+        <button class="btn ghost wide" id="btn-install" style="display:none">Add to home screen</button>
+      </div>
+      <p class="tiny">Make your bid, take your tricks. 10 plus your bid if you call it right,
+        5 a trick off you if you don't.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== New game setup ================================================ -->
+<div class="screen" id="screen-setup">
+  <header class="bar">
+    <button class="icon-btn" onclick="App.home()" aria-label="Back">←</button>
+    <div class="mid"><h2>Who's playing?</h2></div>
+    <span class="icon-btn ghost-space" aria-hidden="true"></span>
+  </header>
+
+  <div class="body">
+    <div class="wrap">
+      <div class="roster" id="setup-roster"></div>
+      <button class="btn ghost wide" style="margin-top:10px" onclick="App.askNewPlayer()">+ Add a player</button>
+
+      <div class="section-label">Game length</div>
+      <div class="segment" id="setup-length">
+        <button data-type="full" onclick="App.setLength('full')">Full game<small id="lbl-full">1 → 10 → 1</small></button>
+        <button data-type="half" onclick="App.setLength('half')">Half game<small id="lbl-half">1 → 10</small></button>
+      </div>
+      <p class="tiny" id="setup-note"></p>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="wrap">
+      <p class="foot-note" id="setup-count"></p>
+      <button class="btn wide" id="btn-start" onclick="App.startGame()" disabled>Start</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== The game ====================================================== -->
+<div class="screen" id="screen-game">
+  <header class="bar">
+    <button class="icon-btn" onclick="App.openGameMenu()" aria-label="Game menu">☰</button>
+    <div class="mid">
+      <div class="round-no" id="g-round">Round 1 of 19</div>
+      <div class="round-sub" id="g-cards">1 card each</div>
+    </div>
+    <button class="icon-btn" onclick="App.showScores()" aria-label="Score sheet">📋</button>
+  </header>
+
+  <div class="body"><div class="wrap" id="g-body"></div></div>
+
+  <div class="foot"><div class="wrap" id="g-foot"></div></div>
+</div>
+
+<!-- ===== Score sheet (live game or a game from history) ================= -->
+<div class="screen" id="screen-scores">
+  <header class="bar">
+    <button class="icon-btn" onclick="App.closeScores()" aria-label="Back">←</button>
+    <div class="mid"><h2 id="scores-title">Score sheet</h2></div>
+    <span class="icon-btn ghost-space" aria-hidden="true"></span>
+  </header>
+
+  <div class="body">
+    <div class="wrap">
+      <div class="grid-scroll"><table class="grid" id="scores-grid"></table></div>
+      <p class="tiny" id="scores-hint"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Correcting a round ============================================ -->
+<div class="screen" id="screen-edit">
+  <header class="bar">
+    <button class="icon-btn" onclick="App.cancelEdit()" aria-label="Cancel">←</button>
+    <div class="mid"><h2 id="edit-title">Round</h2></div>
+    <span class="icon-btn ghost-space" aria-hidden="true"></span>
+  </header>
+
+  <div class="body"><div class="wrap" id="edit-body"></div></div>
+
+  <div class="foot">
+    <div class="wrap">
+      <p class="foot-note" id="edit-note"></p>
+      <button class="btn wide" id="btn-save-edit" onclick="App.saveEdit()">Save corrections</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Final results ================================================= -->
+<div class="screen" id="screen-final">
+  <div class="body"><div class="wrap" id="final-body"></div></div>
+  <div class="foot"><div class="wrap" id="final-foot"></div></div>
+</div>
+
+<!-- ===== Players ======================================================= -->
+<div class="screen" id="screen-players">
+  <header class="bar">
+    <button class="icon-btn" onclick="App.home()" aria-label="Back">←</button>
+    <div class="mid"><h2>Players</h2></div>
+    <button class="icon-btn" onclick="App.askNewPlayer()" aria-label="Add a player">＋</button>
+  </header>
+  <div class="body"><div class="wrap" id="players-body"></div></div>
+</div>
+
+<!-- ===== One player ==================================================== -->
+<div class="screen" id="screen-profile">
+  <header class="bar">
+    <button class="icon-btn" onclick="App.showPlayers()" aria-label="Back">←</button>
+    <div class="mid"><h2 id="profile-name">Player</h2></div>
+    <button class="icon-btn" onclick="App.openPlayerMenu()" aria-label="Edit player">⋯</button>
+  </header>
+  <div class="body"><div class="wrap" id="profile-body"></div></div>
+</div>
+
+<!-- ===== Game history ================================================== -->
+<div class="screen" id="screen-history">
+  <header class="bar">
+    <button class="icon-btn" onclick="App.home()" aria-label="Back">←</button>
+    <div class="mid"><h2>Game history</h2></div>
+    <span class="icon-btn ghost-space" aria-hidden="true"></span>
+  </header>
+  <div class="body"><div class="wrap" id="history-body"></div></div>
+</div>
+
+<!-- ===== Settings ====================================================== -->
+<div class="screen" id="screen-settings">
+  <header class="bar">
+    <button class="icon-btn" onclick="App.home()" aria-label="Back">←</button>
+    <div class="mid"><h2>Settings</h2></div>
+    <span class="icon-btn ghost-space" aria-hidden="true"></span>
+  </header>
+
+  <div class="body">
+    <div class="wrap">
+      <div class="setting">
+        <div>
+          <div class="setting-label">Roast Mode 😈</div>
+          <p class="setting-sub">A line of commentary after each round. Never blocks anything.</p>
+        </div>
+        <button class="toggle" id="tog-roast" role="switch" aria-checked="true" onclick="App.toggle('roast')"><span class="knob"></span></button>
+      </div>
+
+      <div class="setting">
+        <div>
+          <div class="setting-label">Sound</div>
+          <p class="setting-sub">Quiet taps and a fanfare for whoever wins.</p>
+        </div>
+        <button class="toggle" id="tog-sound" role="switch" aria-checked="true" onclick="App.toggle('sound')"><span class="knob"></span></button>
+      </div>
+
+      <div class="setting">
+        <div>
+          <div class="setting-label">Confirm big changes</div>
+          <p class="setting-sub">Ask first before shortening or abandoning a game in progress.</p>
+        </div>
+        <button class="toggle" id="tog-confirm" role="switch" aria-checked="true" onclick="App.toggle('confirm')"><span class="knob"></span></button>
+      </div>
+
+      <p class="tiny" id="settings-note"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modals ======================================================== -->
+
+<div class="modal" id="modal-name">
+  <div class="sheet">
+    <h2 id="name-title">Add a player</h2>
+    <input id="name-input" type="text" maxlength="16" autocomplete="off" autocapitalize="words" placeholder="Name">
+    <div class="stack">
+      <button class="btn" onclick="App.saveName()">Save</button>
+      <button class="btn ghost" onclick="GK.UI.closeModal('modal-name')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal-menu">
+  <div class="sheet">
+    <h2>This game</h2>
+    <div class="menu-list" id="menu-list"></div>
+  </div>
+</div>
+
+<div class="modal" id="modal-confirm">
+  <div class="sheet">
+    <h2 id="confirm-title">Are you sure?</h2>
+    <p id="confirm-text"></p>
+    <div class="stack">
+      <button class="btn" id="confirm-ok">Yes</button>
+      <button class="btn ghost" onclick="GK.UI.closeModal('modal-confirm')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="lib/gk-util.js"></script>
+<script src="lib/gk-audio.js"></script>
+<script src="lib/gk-ui.js"></script>
+<script src="lib/gk-pwa.js"></script>
+<script src="js/scoring.js"></script>
+<script src="js/game.js"></script>
+<script src="js/stats.js"></script>
+<script src="js/roast.js"></script>
+<script src="js/store.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
