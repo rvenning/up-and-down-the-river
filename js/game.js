@@ -17,7 +17,7 @@ const RulesRef = typeof require === "function" && typeof module !== "undefined"
 
 const Game = {
   // stage: bid -> play -> tally -> result -> (next round) bid ... -> done
-  create({ players, gameType = "full", id, now = Date.now() }) {
+  create({ players, gameType = "full", dealerStart = 0, id, now = Date.now() }) {
     if (!Array.isArray(players) || players.length < 2)
       throw new Error("a game needs at least 2 players");
 
@@ -27,6 +27,9 @@ const Game = {
       createdAt: now,
       completedAt: null,
       gameType,
+      // Seat index of the first dealer; the deal then passes one seat per round.
+      // Always stored — the setting only decides whether the app shows it.
+      dealerStart: Math.max(0, Math.min(players.length - 1, dealerStart | 0)),
       // Names are snapshotted: renaming or deleting a player later must not
       // rewrite the history of a game they already played.
       players: players.map((p) => ({ id: p.id, name: p.name })),
@@ -49,6 +52,13 @@ const Game = {
   cards(g) { return this.ladder(g)[g.round] || 0; },
   roundNumber(g) { return Math.min(g.round + 1, this.roundCount(g)); },
   isDone(g) { return g.stage === "done"; },
+
+  /* ----- the dealer -------------------------------------------------------- */
+
+  dealerFor(g, round = g.round) {
+    const n = g.players.length;
+    return g.players[(((g.dealerStart || 0) + round) % n + n) % n];
+  },
 
   /* ----- bidding ----------------------------------------------------------- */
 
@@ -86,6 +96,18 @@ const Game = {
   toPlay(g) { if (this.bidsIn(g)) g.stage = "play"; return g; },
   toBids(g) { if (g.stage === "play" || g.stage === "tally") g.stage = "bid"; return g; },
   toTally(g) { if (g.stage === "play" || g.stage === "bid") g.stage = "tally"; return g; },
+
+  // Everybody made their bid: the tricks are the bids. Only possible when the
+  // bids add up to the cards dealt — otherwise someone cannot have made theirs.
+  canAllMake(g) {
+    return (g.stage === "play" || g.stage === "tally") && this.bidsIn(g) && this.bidGap(g) === 0;
+  },
+
+  allMade(g) {
+    if (!this.canAllMake(g)) return g;
+    for (const p of g.players) g.tricks[p.id] = g.bids[p.id];
+    return this.submit(g);
+  },
 
   // Commit the round. Scores are worked out here once and stored, so a saved
   // game never depends on the rules file agreeing with itself later.

@@ -452,3 +452,16 @@ table.grid td.now { background: rgba(224, 168, 60, .16); }
   .splash { padding-top: 2vh; }
   .ladder { height: 30px; margin-bottom: 16px; }
 }
+
+/* --- charts and dealer -------------------------------------------------- */
+
+.chart-panel { color: var(--ink); background: var(--card); }
+.chart { display: block; width: 100%; height: auto; margin: 4px 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; font-weight: 700; color: var(--ink-soft); margin: 2px 0 12px; }
+.legend:last-child { margin-bottom: 0; }
+.legend i, .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; }
+.cmp-row { margin-bottom: 12px; }
+.cmp-head { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 800; }
+.cmp-head span:last-child { color: var(--ink-soft); font-weight: 700; }
+.cmp-bar { height: 10px; border-radius: 5px; background: var(--bad); margin-top: 5px; overflow: hidden; }
+.cmp-bar b { display: block; height: 100%; background: var(--good); }

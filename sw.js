@@ -6,7 +6,7 @@
 // BUMP THE CACHE NAME whenever any shell file below changes, or devices keep
 // serving the copy they already have and the fix never lands.
 
-const CACHE = "river-v5";
+const CACHE = "river-v6";
 
 const SHELL = [
   "./",
@@ -21,6 +21,7 @@ const SHELL = [
   "js/scoring.js",
   "js/game.js",
   "js/stats.js",
+  "js/charts.js",
   "js/roast.js",
   "js/store.js",
   "js/main.js",

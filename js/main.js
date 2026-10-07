@@ -31,7 +31,7 @@ const App = {
   roaster: null,       // remembers which jokes it has already used this game
   undos: [],
   cursor: 0,           // which player the picker is asking
-  setup: { picked: [], gameType: "full" },
+  setup: { picked: [], gameType: "full", dealer: 0 },
   editing: null,       // { index, bids, tricks } while correcting a round
   viewing: null,       // a finished game being looked at
   fromHistory: false,
@@ -133,6 +133,7 @@ const App = {
   paintSettings() {
     const set = (id, on) => GK.UI.el(id).setAttribute("aria-checked", on ? "true" : "false");
     set("tog-roast", this.settings.roast);
+    set("tog-dealer", this.settings.dealer);
     set("tog-sound", this.settings.sound);
     set("tog-confirm", this.settings.confirm);
   },
@@ -177,6 +178,7 @@ const App = {
   openSetup() {
     this.setup.picked = [];
     this.setup.gameType = "full";
+    this.setup.dealer = 0;
     this.renderSetup();
     GK.UI.showScreen("setup");
   },
@@ -211,6 +213,15 @@ const App = {
     document.querySelectorAll("#setup-length button").forEach((b) =>
       b.classList.toggle("on", b.dataset.type === this.setup.gameType));
 
+    // First dealer: one of the picked players, in seat order.
+    GK.UI.el("setup-dealer-wrap").style.display = this.settings.dealer && n >= 2 ? "" : "none";
+    this.setup.dealer = Math.min(this.setup.dealer, Math.max(n - 1, 0));
+    const everyone = Store.players();
+    GK.UI.el("setup-dealer").innerHTML = picked.map((id, i) => {
+      const p = everyone.find((x) => x.id === id);
+      return p ? `<button class="${i === this.setup.dealer ? "on" : ""}" onclick="App.setDealer(${i})"><span class="who-name">${GK.util.esc(p.name)}</span></button>` : "";
+    }).join("");
+
     const peak = Rules.peak(forLabel);
     GK.UI.el("setup-note").textContent = peak < Rules.MAX_CARDS
       ? `${forLabel} players is ${peak} cards each at the top — one deck won't stretch to ten.`
@@ -222,6 +233,12 @@ const App = {
     if (at >= 0) this.setup.picked.splice(at, 1);
     else if (this.setup.picked.length < 8) this.setup.picked.push(id);
     else return GK.UI.toast("Eight is plenty");
+    GK.Sfx.tap();
+    this.renderSetup();
+  },
+
+  setDealer(i) {
+    this.setup.dealer = i;
     GK.Sfx.tap();
     this.renderSetup();
   },
@@ -238,7 +255,7 @@ const App = {
     if (players.length < 2) return;
 
     Store.touch(players.map((p) => p.id));
-    this.game = Game.create({ players, gameType: this.setup.gameType });
+    this.game = Game.create({ players, gameType: this.setup.gameType, dealerStart: this.setup.dealer });
     this.roaster = Roast.make();
     this.undos = [];
     this.cursor = 0;
@@ -296,7 +313,8 @@ const App = {
 
     GK.UI.el("g-round").textContent = `Round ${Game.roundNumber(g)} of ${Game.roundCount(g)}`;
     const cards = Game.cards(g);
-    GK.UI.el("g-cards").textContent = `${cards} card${cards === 1 ? "" : "s"} each`;
+    const dealer = this.settings.dealer ? Game.dealerFor(g) : null;
+    GK.UI.el("g-cards").textContent = `${cards} card${cards === 1 ? "" : "s"} each` + (dealer ? ` · ${dealer.name} deals` : "");
 
     const view = { bid: this.viewBid, play: this.viewPlay, tally: this.viewTally, result: this.viewResult }[g.stage];
     const { body, foot } = view.call(this, g);
@@ -310,8 +328,9 @@ const App = {
   whoStrip(g, values) {
     return `<div class="who">${g.players.map((p, i) => {
       const v = values[p.id];
+      const deals = this.settings.dealer && Game.dealerFor(g).id === p.id;
       return `<button class="${i === this.cursor ? "on" : v != null ? "done" : ""}" onclick="App.jumpTo(${i})">
-                <span class="who-name">${GK.util.esc(p.name)}</span>
+                <span class="who-name">${deals ? "🃏 " : ""}${GK.util.esc(p.name)}</span>
                 <span class="n ${v == null ? "none" : ""}">${v == null ? "–" : v}</span>
               </button>`;
     }).join("")}</div>`;
@@ -375,8 +394,9 @@ const App = {
 
     return {
       body,
-      foot: note + `<button class="btn wide" onclick="App.toTally()">Round played — enter tricks</button>
-                    <button class="btn ghost wide" onclick="App.backToBids()">Fix a bid</button>`,
+      foot: note + `<button class="btn wide" onclick="App.toTally()">Round played — enter tricks</button>` +
+        this.madeButton(g) +
+        `<button class="btn ghost wide" onclick="App.backToBids()">Fix a bid</button>`,
     };
   },
 
@@ -407,7 +427,7 @@ const App = {
 
     return {
       body,
-      foot: note + `<button class="btn wide" ${ready ? "" : "disabled"} onclick="App.submitRound()">Score the round</button>`,
+      foot: note + `<button class="btn wide" ${ready ? "" : "disabled"} onclick="App.submitRound()">Score the round</button>` + this.madeButton(g),
     };
   },
 
@@ -437,6 +457,14 @@ const App = {
       body,
       foot: `<button class="btn wide" onclick="App.nextRound()">${last ? "Final results" : "Next round"}</button>`,
     };
+  },
+
+  // Only offered when the bids add up to the cards dealt — otherwise somebody
+  // cannot have made theirs, and the button would be a lie.
+  madeButton(g) {
+    return Game.canAllMake(g)
+      ? `<button class="btn cream wide" onclick="App.everyoneMade()">Everyone made their bid ✓</button>`
+      : "";
   },
 
   roastLine(g) {
@@ -495,6 +523,17 @@ const App = {
     const madeAny = g.players.some((p) => r.bids[p.id] === r.tricks[p.id]);
     if (madeAny) GK.Sfx.made(); else GK.Sfx.missed();
 
+    this.save();
+    this.showGame();
+  },
+
+  everyoneMade() {
+    const g = this.game;
+    if (!Game.canAllMake(g)) return;
+    this.pushUndo();
+    Game.allMade(g);
+    if (g.stage !== "result") return;
+    GK.Sfx.made();
     this.save();
     this.showGame();
   },
@@ -759,7 +798,10 @@ const App = {
     const games = Store.games();
     const roster = Store.roster();
 
-    GK.UI.el("players-body").innerHTML = roster.length ? roster.map((p) => {
+    const compare = roster.filter((p) => Stats.playerStats(games, p.id).played).length >= 2
+      ? `<button class="btn cream wide" style="margin-bottom:12px" onclick="App.showCompare()">📊 Compare players</button>` : "";
+
+    GK.UI.el("players-body").innerHTML = compare + (roster.length ? roster.map((p) => {
       const s = Stats.playerStats(games, p.id);
       const meta = s.played
         ? `${s.played} game${s.played === 1 ? "" : "s"} · ${s.won} won · best ${s.highest}`
@@ -768,7 +810,7 @@ const App = {
                 <h3>${GK.util.esc(p.name)}</h3>
                 <p>${meta}</p>
               </div>`;
-    }).join("") : `<p class="empty">Nobody here yet. Add the people you play with and the app will remember them.</p>`;
+    }).join("") : `<p class="empty">Nobody here yet. Add the people you play with and the app will remember them.</p>`);
 
     GK.UI.showScreen("players");
   },
@@ -798,6 +840,15 @@ const App = {
       </div>
       <p class="tiny">Lowest score is in there deliberately. Somebody has to hold the record.</p>` : `
       <p class="empty">${GK.util.esc(p.name)} hasn't finished a game yet.</p>`;
+
+    const tl = Stats.timeline(games, id);
+    if (tl.length) {
+      const end = tl[tl.length - 1];
+      html += `<div class="section-label">Wins and losses</div><div class="panel chart-panel">` +
+        Charts.strip(tl) + Charts.legend([{ color: "#2e8b57", label: "win" }, { color: "#c0433a", label: "loss" }]) +
+        (tl.length > 1 ? Charts.winLoss(tl) + Charts.legend([{ color: "#2e8b57", label: `wins (${end.wins})` }, { color: "#c0433a", label: `losses (${end.losses})` }]) : "") +
+        `</div>`;
+    }
 
     const mine = Stats.playedIn(games, id);
     if (mine.length) {
@@ -837,6 +888,31 @@ const App = {
       skippable: false,
       then: () => { Store.deletePlayer(id); this.showPlayers(); },
     });
+  },
+
+  showCompare() {
+    const games = Store.games();
+    const series = Store.roster()
+      .map((p) => ({ name: p.name, tl: Stats.timeline(games, p.id) }))
+      .filter((s) => s.tl.length)
+      .sort((a, b) => b.tl.length - a.tl.length);
+
+    const rows = series.map((s, k) => {
+      const last = s.tl[s.tl.length - 1];
+      return `<div class="cmp-row">
+        <div class="cmp-head"><span><i class="dot" style="background:${Charts.COLORS[k % Charts.COLORS.length]}"></i>${GK.util.esc(s.name)}</span>
+          <span>${last.wins}W · ${last.losses}L · ${last.winRate}%</span></div>
+        <div class="cmp-bar"><b style="width:${last.winRate}%"></b></div>
+      </div>`;
+    }).join("");
+
+    GK.UI.el("compare-body").innerHTML = series.length < 2
+      ? `<p class="empty">Two players need a finished game each before there's anything to compare.</p>`
+      : `<div class="section-label">Wins and losses</div><div class="panel chart-panel">${rows}</div>
+         <div class="section-label">Win rate over time</div><div class="panel chart-panel">${Charts.compare(series)}
+         ${Charts.legend(series.map((s, k) => ({ color: Charts.COLORS[k % Charts.COLORS.length], label: s.name })))}</div>
+         <p class="tiny">Each line follows one player through their own games, oldest on the left.</p>`;
+    GK.UI.showScreen("compare");
   },
 
   showHistory() {

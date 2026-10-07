@@ -23,6 +23,20 @@ const Stats = {
     return this.finished(games).filter((g) => g.players.some((p) => p.id === playerId));
   },
 
+  // One entry per finished game, oldest first, with running wins and losses —
+  // the raw material for the history charts. A loss is any finished game not
+  // finished first; a shared win counts as a win.
+  timeline(games, playerId) {
+    const mine = this.playedIn(games, playerId).reverse();
+    let wins = 0, losses = 0;
+    return mine.map((g) => {
+      const won = this.positionOf(g, playerId) === 1;
+      if (won) wins++; else losses++;
+      return { id: g.id, at: g.completedAt, won, total: GameRef.totals(g)[playerId], wins, losses,
+               winRate: Math.round((wins / (wins + losses)) * 1000) / 10 };
+    });
+  },
+
   playerStats(games, playerId) {
     const mine = this.playedIn(games, playerId);
 

@@ -100,7 +100,7 @@ const Store = {
 
   settings() {
     const s = this.read("settings", {});
-    return { roast: true, sound: true, confirm: true, ...s };
+    return { roast: true, sound: true, confirm: true, dealer: true, ...s };
   },
   saveSettings(s) { this.write("settings", s); },
 };

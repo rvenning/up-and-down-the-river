@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="gk-version" content="5" data-date="2026-09-14" data-kit="1.10.1">
+<meta name="gk-version" content="6" data-date="2026-10-07" data-kit="1.10.1">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>Up &amp; Down the River — scorer</title>
 <link rel="manifest" href="manifest.json">
@@ -55,6 +55,11 @@
     <div class="wrap">
       <div class="roster" id="setup-roster"></div>
       <button class="btn ghost wide" style="margin-top:10px" onclick="App.askNewPlayer()">+ Add a player</button>
+
+      <div id="setup-dealer-wrap">
+        <div class="section-label">First dealer</div>
+        <div class="who" id="setup-dealer"></div>
+      </div>
 
       <div class="section-label">Game length</div>
       <div class="segment" id="setup-length">
@@ -139,6 +144,16 @@
   <div class="body"><div class="wrap" id="players-body"></div></div>
 </div>
 
+<!-- ===== Comparing players ============================================== -->
+<div class="screen" id="screen-compare">
+  <header class="bar">
+    <button class="icon-btn" onclick="App.showPlayers()" aria-label="Back">←</button>
+    <div class="mid"><h2>Compare players</h2></div>
+    <span class="icon-btn ghost-space" aria-hidden="true"></span>
+  </header>
+  <div class="body"><div class="wrap" id="compare-body"></div></div>
+</div>
+
 <!-- ===== One player ==================================================== -->
 <div class="screen" id="screen-profile">
   <header class="bar">
@@ -175,6 +190,14 @@
           <p class="setting-sub">A line of commentary after each round. Never blocks anything.</p>
         </div>
         <button class="toggle" id="tog-roast" role="switch" aria-checked="true" onclick="App.toggle('roast')"><span class="knob"></span></button>
+      </div>
+
+      <div class="setting">
+        <div>
+          <div class="setting-label">Track the dealer</div>
+          <p class="setting-sub">Shows whose deal it is each round. You pick the first dealer when you start a game.</p>
+        </div>
+        <button class="toggle" id="tog-dealer" role="switch" aria-checked="true" onclick="App.toggle('dealer')"><span class="knob"></span></button>
       </div>
 
       <div class="setting">
@@ -238,6 +261,7 @@
 <script src="js/scoring.js"></script>
 <script src="js/game.js"></script>
 <script src="js/stats.js"></script>
+<script src="js/charts.js"></script>
 <script src="js/roast.js"></script>
 <script src="js/store.js"></script>
 <script src="js/main.js"></script>
